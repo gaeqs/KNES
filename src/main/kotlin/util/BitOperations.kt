@@ -53,3 +53,13 @@ infix fun UInt.shr(other: Number): UInt {
 infix fun UByte.concatenate(other: UByte): UShort {
     return (this.toUShort() shl 8) or other.toUShort()
 }
+
+@ExperimentalUnsignedTypes
+infix fun Boolean.concatenate(other: Boolean): UByte {
+    return when {
+        !this && !other -> 0u
+        !this && other -> 1u
+        this && !other -> 2u
+        else -> 3u
+    }
+}

@@ -2,7 +2,6 @@ package ppu
 
 import bus.Cartridge
 import bus.Mirror
-import util.flip
 import util.isZero
 import util.shl
 import util.shr
@@ -11,6 +10,10 @@ import java.awt.image.BufferedImage
 
 @ExperimentalUnsignedTypes
 class OLC2C02 {
+
+    companion object {
+        private val ZERO_PAIR = Pair((0u).toUByte(), (0u).toUByte())
+    }
 
     var cartridge: Cartridge? = null
     val nameTables = Array(2) { UByteArray(1024) }
@@ -21,9 +24,6 @@ class OLC2C02 {
     val control = Control(0u)
     val status = Status(0u)
     val mask = Mask(0u)
-    val vRamAddress = Loopy(0u)
-    val tRamAddress = Loopy(0u)
-    var fineX: UByte = 0u
     var nmiRequest = false
 
     private var addressLatch: Boolean = false
@@ -31,14 +31,7 @@ class OLC2C02 {
     private var oamAddress: UByte = 0u
 
     private val backgroundRenderer = BackgroundRenderer(this)
-
-    private val scanlineSprites = Array(64) { PPUSprite(0u, 0u, 0u, 0u) }
-    private var spriteCount: UByte = 0u
-    private val spriteShifterPatternLow = UByteArray(8)
-    private val spriteShifterPatternHigh = UByteArray(8)
-
-    private var spriteZeroHitPossible = false
-    private var spriteZeroBeingRendered = false
+    private val spriteRenderer = SpriteRenderer(this)
 
     /**
      * CPU bus communication
@@ -48,8 +41,8 @@ class OLC2C02 {
             // Control
             0x0000u -> {
                 control.value = data
-                tRamAddress.nameTableX = control.nameTableX
-                tRamAddress.nameTableY = control.nameTableY
+                backgroundRenderer.tRamAddress.nameTableX = control.nameTableX
+                backgroundRenderer.tRamAddress.nameTableY = control.nameTableY
             }
             // Mask
             0x0001u -> mask.value = data
@@ -67,30 +60,33 @@ class OLC2C02 {
             // Scroll
             0x0005u -> {
                 if (addressLatch) {
-                    tRamAddress.fineY = data and 0x7u
-                    tRamAddress.coarseY = data shr 3
+                    backgroundRenderer.tRamAddress.fineY = data and 0x7u
+                    backgroundRenderer.tRamAddress.coarseY = data shr 3
                     addressLatch = false
                 } else {
-                    fineX = data and 0x7u
-                    tRamAddress.coarseX = data shr 3
+                    backgroundRenderer.fineX = data and 0x7u
+                    backgroundRenderer.tRamAddress.coarseX = data shr 3
                     addressLatch = true
                 }
             }
             // PPU Address
             0x0006u -> {
                 if (addressLatch) {
-                    tRamAddress.value = tRamAddress.value and 0xFF00u or data.toUShort()
-                    vRamAddress.value = tRamAddress.value
+                    backgroundRenderer.tRamAddress.value =
+                        backgroundRenderer.tRamAddress.value and 0xFF00u or data.toUShort()
+                    backgroundRenderer.vRamAddress.value = backgroundRenderer.tRamAddress.value
                     addressLatch = false
                 } else {
-                    tRamAddress.value = tRamAddress.value and 0x00FFu or (data.toUShort() shl 8)
+                    backgroundRenderer.tRamAddress.value =
+                        backgroundRenderer.tRamAddress.value and 0x00FFu or (data.toUShort() shl 8)
                     addressLatch = true
                 }
             }
             // PPU Data
             0x0007u -> {
-                ppuWrite(vRamAddress.value, data)
-                vRamAddress.value = (vRamAddress.value + (if (control.incrementMode > 0u) 32u else 1u)).toUShort()
+                ppuWrite(backgroundRenderer.vRamAddress.value, data)
+                backgroundRenderer.vRamAddress.value =
+                    (backgroundRenderer.vRamAddress.value + (if (control.incrementMode > 0u) 32u else 1u)).toUShort()
             }
         }
     }
@@ -131,11 +127,12 @@ class OLC2C02 {
             0x0007u -> {
                 var data = ppuDataBuffer
 
-                ppuDataBuffer = ppuRead(vRamAddress.value)
+                ppuDataBuffer = ppuRead(backgroundRenderer.vRamAddress.value)
 
-                data = if (vRamAddress.value >= 0x3F00u) ppuDataBuffer else data
+                data = if (backgroundRenderer.vRamAddress.value >= 0x3F00u) ppuDataBuffer else data
 
-                vRamAddress.value = (vRamAddress.value + (if (control.incrementMode > 0u) 32u else 1u)).toUShort()
+                backgroundRenderer.vRamAddress.value =
+                    (backgroundRenderer.vRamAddress.value + (if (control.incrementMode > 0u) 32u else 1u)).toUShort()
                 data
             }
             else -> 0u
@@ -233,116 +230,20 @@ class OLC2C02 {
     }
 
     fun clock() {
-        // SCANLINES FROM -1 TO 240
-        if (scanline in -1 until 240) {
-
-            if (scanline == 0 && cycle == 0) {
-                cycle = 1 // Odd frame cycle skip
-            }
-
-            if (scanline == -1 && cycle == 1) {
-                status.verticalBlank = 0u
-                status.spriteOverflow = 0u
-                status.verticalZeroHit = 0u
-                spriteShifterPatternLow.fill(0u)
-                spriteShifterPatternHigh.fill(0u)
-            }
-
-            // FOREGROUND
-            if (cycle in 2 until 258 || cycle in 321 until 338) {
-                updateShifters()
-            }
-
-            if (cycle == 257 && scanline >= 0) {
-                spriteZeroHitPossible = false
-                scanlineSprites.forEach { it.fill(0xFFu) }
-                spriteCount = 0u
-                var entry = 0
-                while (entry < 64 && status.spriteOverflow.isZero()) {
-                    val diff = (scanline.toShort() - oam[entry].y.toShort())
-
-                    if (diff >= 0 && diff < if (control.spriteSize > 0u) 16 else 8) {
-                        if (spriteCount < 8u) {
-                            if (entry == 0) spriteZeroHitPossible = true
-                            scanlineSprites[spriteCount.toInt()].moveFrom(oam[entry])
-                            spriteCount++
-                        } else {
-                            status.spriteOverflow = 1u
-                        }
-                    }
-                    entry++
-                }
-            }
-
-            if (cycle == 340) {
-                for (i in 0 until spriteCount.toInt()) {
-                    var spritePatternBitsLow: UByte
-                    var spritePatternBitsHigh: UByte
-                    var spritePatternAddressLow: UShort
-                    var spritePatternAddressHigh: UShort
-
-                    if (control.spriteSize > 0u) {
-                        // 8x16 mode
-                        if ((scanlineSprites[i].attribute and 0x80u).isZero()) {
-                            // No vertical flip
-                            if (scanline - scanlineSprites[i].y.toInt() < 8) {
-                                // Top part
-                                spritePatternAddressLow = (control.patternSprite.toUShort() and 0x01u shl 12) or
-                                        (scanlineSprites[i].id.toUShort() and 0xFEu shl 4) or
-                                        ((scanline.toUShort() - scanlineSprites[i].y.toUShort()).toUShort() and 0x07u)
-                            } else {
-                                spritePatternAddressLow = (control.patternSprite.toUShort() and 0x01u shl 12) or
-                                        (((scanlineSprites[i].id.toUShort() and 0xFEu) + 1u).toUShort() shl 4) or
-                                        ((scanline.toUShort() - scanlineSprites[i].y.toUShort()).toUShort() and 0x07u)
-                            }
-                        } else {
-                            // Vertical flip
-                            if (scanline - scanlineSprites[i].y.toInt() < 8) {
-                                // Top part
-                                spritePatternAddressLow = (control.patternSprite.toUShort() and 0x01u shl 12) or
-                                        (scanlineSprites[i].id.toUShort() and 0xFEu shl 4) or
-                                        ((7u - scanline.toUShort() + scanlineSprites[i].y.toUShort()).toUShort() and 0x07u)
-                            } else {
-                                spritePatternAddressLow = (control.patternSprite.toUShort() and 0x01u shl 12) or
-                                        (((scanlineSprites[i].id.toUShort() and 0xFEu) + 1u).toUShort() shl 4) or
-                                        ((7u - scanline.toUShort() + scanlineSprites[i].y.toUShort()).toUShort() and 0x07u)
-                            }
-                        }
-                    } else {
-                        // 8x8 mode
-                        if ((scanlineSprites[i].attribute and 0x80u).isZero()) {
-                            // No vertical flip
-                            spritePatternAddressLow = (control.patternSprite.toUShort() shl 12) or
-                                    (scanlineSprites[i].id.toUShort() shl 4) or
-                                    (scanline.toUShort() - scanlineSprites[i].y.toUShort()).toUShort()
-                        } else {
-                            // Vertical flip
-                            spritePatternAddressLow = (control.patternSprite.toUShort() shl 12) or
-                                    (scanlineSprites[i].id.toUShort() shl 4) or
-                                    (7u - scanline.toUShort() + scanlineSprites[i].y.toUShort()).toUShort()
-                        }
-                    }
-
-                    spritePatternAddressHigh = (spritePatternAddressLow + 8u).toUShort()
-                    spritePatternBitsLow = ppuRead(spritePatternAddressLow)
-                    spritePatternBitsHigh = ppuRead(spritePatternAddressHigh)
-
-                    if (scanlineSprites[i].attribute and 0x40u > 0u) {
-                        // Horizontal flip
-                        spritePatternBitsLow = spritePatternBitsLow.flip()
-                        spritePatternBitsHigh = spritePatternBitsHigh.flip()
-                    }
-
-                    spriteShifterPatternLow[i] = spritePatternBitsLow
-                    spriteShifterPatternHigh[i] = spritePatternBitsHigh
-                }
-            }
+        if (scanline == 0 && cycle == 0) cycle = 1 // Odd frame cycle skip
+        if (scanline == -1 && cycle == 1) {
+            status.verticalBlank = 0u
+            status.spriteOverflow = 0u
+            status.verticalZeroHit = 0u
+            spriteRenderer.reset()
         }
 
         val (bgPixel, bgPalette) = backgroundRenderer.clock(scanline, cycle)
+        val (fgPixel, fgPalette, fgPriority) = spriteRenderer.clock(scanline, cycle)
+        val bgPixel0 = bgPixel.isZero()
+        val fgPixel0 = fgPixel.isZero()
 
         // SCANLINE 240 does nothing :)
-
         if (scanline == 241 && cycle == 1) {
             status.verticalBlank = 1u
             if (control.enableNmi > 0u) {
@@ -350,65 +251,13 @@ class OLC2C02 {
             }
         }
 
-        // Fake noise
-        //if (cycle - 1 in 0 until screen.width && scanline in 0 until screen.height) {
-        //    screen.setRGB(cycle - 1, scanline, paletteColors[(Math.random() * paletteColors.size).toInt()].rgb)
-        //}
-
-        var fgPixel: UByte = 0u
-        var fgPalette: UByte = 0u
-        var fgPriority = false
-
-        if (mask.showSprites > 0u) {
-            spriteZeroBeingRendered = false
-            for (i in 0 until spriteCount.toInt()) {
-                if (scanlineSprites[i].x.isZero()) {
-                    val p0Pixel = spriteShifterPatternLow[i] and 0x80u > 0u
-                    val p1Pixel = spriteShifterPatternHigh[i] and 0x80u > 0u
-                    fgPixel = (if (p1Pixel) 2u else 0u).toUByte() or (if (p0Pixel) 1u else 0u).toUByte()
-                    fgPalette = ((scanlineSprites[i].attribute and 0x03u) + 0x04u).toUByte()
-                    fgPriority = (scanlineSprites[i].attribute and 0x20u).isZero()
-
-                    // Pixel found, break
-                    if (fgPixel > 0u) {
-                        if (i == 0) spriteZeroBeingRendered = true
-                        break
-                    }
-                }
-            }
-        }
-
-        val pixel: UByte
-        val palette: UByte
-
-        if (bgPixel.isZero() && fgPixel.isZero()) {
-            pixel = 0u
-            palette = 0u
-        } else if (bgPixel.isZero() && !fgPixel.isZero()) {
-            pixel = fgPixel
-            palette = fgPalette
-        } else if (!bgPixel.isZero() && fgPixel.isZero()) {
-            pixel = bgPixel
-            palette = bgPalette
-        } else {
-            if (fgPriority) {
-                pixel = fgPixel
-                palette = fgPalette
-            } else {
-                pixel = bgPixel
-                palette = bgPalette
-            }
-            // Zero hit collection
-            if(spriteZeroHitPossible && spriteZeroBeingRendered && mask.showBackground > 0u && mask.showSprites > 0u) {
-                if((mask.showBackgroundInLeftmost or mask.showSpritesInLeft).inv() > 0u) {
-                    if(cycle in 9 until 258) {
-                        status.verticalZeroHit = 1u
-                    }
-                } else {
-                    if(cycle in 1 until 258) {
-                        status.verticalZeroHit = 1u
-                    }
-                }
+        val (pixel: UByte, palette: UByte) = when {
+            bgPixel0 && fgPixel0 -> ZERO_PAIR
+            bgPixel0 && !fgPixel0 -> Pair(fgPixel, fgPalette)
+            !bgPixel0 && fgPixel0 -> Pair(bgPixel, bgPalette)
+            else -> {
+                updateZeroHit()
+                if (fgPriority) Pair(fgPixel, fgPalette) else Pair(bgPixel, bgPalette)
             }
         }
 
@@ -427,14 +276,17 @@ class OLC2C02 {
         }
     }
 
-    private fun updateShifters() {
-        if (mask.showSprites > 0u && cycle in 1 until 258) {
-            for (i in 0 until spriteCount.toInt()) {
-                if (scanlineSprites[i].x > 0u) {
-                    scanlineSprites[i].x--
-                } else {
-                    spriteShifterPatternLow[i] = spriteShifterPatternLow[i] shl 1
-                    spriteShifterPatternHigh[i] = spriteShifterPatternHigh[i] shl 1
+    private fun updateZeroHit() {
+        if (spriteRenderer.spriteZeroHitPossible && spriteRenderer.spriteZeroBeingRendered
+            && mask.showBackground > 0u && mask.showSprites > 0u
+        ) {
+            if ((mask.showBackgroundInLeftmost or mask.showSpritesInLeft).inv() > 0u) {
+                if (cycle in 9 until 258) {
+                    status.verticalZeroHit = 1u
+                }
+            } else {
+                if (cycle in 1 until 258) {
+                    status.verticalZeroHit = 1u
                 }
             }
         }

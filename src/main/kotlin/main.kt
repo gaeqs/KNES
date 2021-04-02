@@ -17,7 +17,7 @@ fun main(args: Array<String>) {
     val ppu = OLC2C02()
     val bus = Bus(cpu, ppu)
 
-    bus.cartridge = Cartridge(File("roms/dk.nes"))
+    bus.cartridge = Cartridge(File("roms/ice.nes"))
     bus.reset()
 
     WINDOW = NESWindow(800, 600, bus)

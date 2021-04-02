@@ -201,13 +201,12 @@ class NESWindow(width: Int, height: Int, val nes: Bus) : JPanel(true) {
                 37 -> left = true
                 40 -> down = true
                 39 -> right = true
+                88 -> a = true
+                90 -> b = true
+                65 -> start = true
+                83 -> select = true
                 else ->
                     when (e.keyChar) {
-                        'x' -> a = true
-                        'z' -> b = true
-                        'a' -> start = true
-                        's' -> select = true
-
 
                         // RUNS / STOPS
                         32.toChar() -> {
@@ -280,12 +279,10 @@ class NESWindow(width: Int, height: Int, val nes: Bus) : JPanel(true) {
                 37 -> left = false
                 40 -> down = false
                 39 -> right = false
-                else -> when (e.keyChar) {
-                    'x' -> a = false
-                    'z' -> b = false
-                    'a' -> start = false
-                    's' -> select = false
-                }
+                88 -> a = false
+                90 -> b = false
+                65 -> start = false
+                83 -> select = false
             }
         }
     }
