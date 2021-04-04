@@ -30,6 +30,18 @@ infix fun UByte.shr(other: Number): UByte {
 }
 
 @ExperimentalUnsignedTypes
+infix fun UByte.rol(other: Number): UByte {
+    val i = toUInt()
+    return ((i shl other) or (i shr (8 - other.toInt()))).toUByte()
+}
+
+@ExperimentalUnsignedTypes
+infix fun UByte.ror(other: Number): UByte {
+    val i = toUInt()
+    return ((i shr other) or (i shl (8 - other.toInt()))).toUByte()
+}
+
+@ExperimentalUnsignedTypes
 infix fun UShort.shl(other: Number): UShort {
     return (this.toUInt() shl other.toInt()).toUShort()
 }
@@ -40,6 +52,18 @@ infix fun UShort.shr(other: Number): UShort {
 }
 
 @ExperimentalUnsignedTypes
+infix fun UShort.rol(other: Number): UShort {
+    val i = toUInt()
+    return ((i shl other) or (i shr (16 - other.toInt()))).toUShort()
+}
+
+@ExperimentalUnsignedTypes
+infix fun UShort.ror(other: Number): UShort {
+    val i = toUInt()
+    return ((i shr other) or (i shl (16 - other.toInt()))).toUShort()
+}
+
+@ExperimentalUnsignedTypes
 infix fun UInt.shl(other: Number): UInt {
     return this shl other.toInt()
 }
@@ -47,6 +71,18 @@ infix fun UInt.shl(other: Number): UInt {
 @ExperimentalUnsignedTypes
 infix fun UInt.shr(other: Number): UInt {
     return this shr other.toInt()
+}
+
+@ExperimentalUnsignedTypes
+infix fun UInt.rol(other: Number): UInt {
+    val i = toUInt()
+    return ((i shl other) or (i shr (32 - other.toInt())))
+}
+
+@ExperimentalUnsignedTypes
+infix fun UInt.ror(other: Number): UInt {
+    val i = toUInt()
+    return ((i shr other) or (i shl (32 - other.toInt())))
 }
 
 @ExperimentalUnsignedTypes

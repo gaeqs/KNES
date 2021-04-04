@@ -8,6 +8,7 @@ import java.awt.event.KeyEvent
 import java.awt.event.KeyListener
 import java.awt.geom.AffineTransform
 import java.awt.image.AffineTransformOp
+import java.util.*
 import javax.swing.JPanel
 
 @ExperimentalUnsignedTypes
@@ -19,6 +20,7 @@ class NESWindow(width: Int, height: Int, val nes: Bus) : JPanel(true) {
     var fps: Double = 0.0
     var selectedPalette: UByte = 0x0u
     var keyListener = KListener()
+    val audioArray = LinkedList<Double>()
 
 
     init {
@@ -29,6 +31,13 @@ class NESWindow(width: Int, height: Int, val nes: Bus) : JPanel(true) {
 
         addKeyListener(keyListener)
         isFocusable = true
+
+        nes.apu.beeper.onSample = {
+            synchronized(audioArray) {
+                audioArray += it
+                if (audioArray.size > 1000) audioArray.removeFirst()
+            }
+        }
     }
 
     override fun paint(g: Graphics?) {
@@ -48,6 +57,7 @@ class NESWindow(width: Int, height: Int, val nes: Bus) : JPanel(true) {
         )
 
         g.drawString("FPS: $fps", 550, 15)
+        drawAudio(g)
         //drawStatus(g)
         //drawRegisters(g)
         //drawDisassembledCode(g)
@@ -99,11 +109,11 @@ class NESWindow(width: Int, height: Int, val nes: Bus) : JPanel(true) {
         g.color = Color.WHITE
     }
 
-    private fun drawOEM (g: Graphics2D) {
+    private fun drawOEM(g: Graphics2D) {
         var y = 15
-        for(i in 0 until 20) {
+        for (i in 0 until 20) {
             g.drawString(nes.ppu.oam[i].toString(), width - 256 * 2, y)
-            y+= 15
+            y += 15
         }
     }
 
@@ -135,6 +145,16 @@ class NESWindow(width: Int, height: Int, val nes: Bus) : JPanel(true) {
         g.color = Color.WHITE
     }
 
+    private fun drawAudio (g : Graphics2D) {
+        var x = 300
+        synchronized(audioArray) {
+            for (d in audioArray) {
+                g.drawRect(x, height / 2 + (d * 100).toInt(), 1, 1)
+            x++
+            }
+        }
+    }
+
     private fun manageThread() {
         val maxDelay = 1000.0 / 60.0
         lastTick = System.nanoTime()
@@ -144,7 +164,7 @@ class NESWindow(width: Int, height: Int, val nes: Bus) : JPanel(true) {
 
             do {
                 nes.clock()
-                if(Thread.currentThread().isInterrupted) return
+                if (Thread.currentThread().isInterrupted) return
             } while (!nes.ppu.frameCompleted)
             nes.ppu.frameCompleted = false
             repaint()
@@ -155,7 +175,7 @@ class NESWindow(width: Int, height: Int, val nes: Bus) : JPanel(true) {
 
             if (delay < maxDelay) {
                 try {
-                    //Thread.sleep((maxDelay - delay).toLong())
+                    Thread.sleep((maxDelay - delay).toLong())
                 } catch (ex: InterruptedException) {
                     break
                 }
@@ -217,6 +237,9 @@ class NESWindow(width: Int, height: Int, val nes: Bus) : JPanel(true) {
                                 thread?.interrupt()
                                 thread = null
                             }
+                        }
+                        'p' -> {
+                            nes.apu.beeper.line.start()
                         }
                         // PALETTES
                         'u' -> {

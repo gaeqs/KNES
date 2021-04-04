@@ -1,5 +1,6 @@
 package bus
 
+import audio.OLC2A03
 import cpu.OLC6502
 import ppu.OLC2C02
 import util.concatenate
@@ -7,7 +8,7 @@ import util.isZero
 import util.shl
 
 @ExperimentalUnsignedTypes
-class Bus(val cpu: OLC6502, val ppu: OLC2C02) {
+class Bus(val cpu: OLC6502, val ppu: OLC2C02, val apu: OLC2A03) {
 
     var clockCounter: Int = 0
         private set
@@ -43,8 +44,11 @@ class Bus(val cpu: OLC6502, val ppu: OLC2C02) {
                 dmaAddress = 0u
                 dmaTransfer = true
             }
-            in 0x4016u..0x4017u -> controllersSnapshot[(address and 0x1u).toInt()] =
-                controllers[(address and 0x1u).toInt()]
+            in 0x4000u..0x4013u, (0x4015u).toUShort(), (0x4017u).toUShort() ->
+                apu.cpuWrite(address, data)
+        }
+        if (address in 0x4016u..0x4017u) {
+            controllersSnapshot[(address and 0x1u).toInt()] = controllers[(address and 0x1u).toInt()]
         }
     }
 
@@ -56,6 +60,7 @@ class Bus(val cpu: OLC6502, val ppu: OLC2C02) {
         return when (address) {
             in 0x0000u..0x1FFFu -> cpuRAM[address.toInt() and 0x07FF]
             in 0x2000u..0x3FFFu -> ppu.cpuRead(address and 0x0007u, readOnly)
+            (0x4015u).toUShort() -> apu.cpuRead(address, readOnly)
             in 0x4016u..0x4017u -> {
                 val value = controllersSnapshot[(address and 0x1u).toInt()]
                 val data: UByte = if (value and 0x80u > 0u) 1u else 0u
@@ -74,6 +79,11 @@ class Bus(val cpu: OLC6502, val ppu: OLC2C02) {
     fun clock() {
         ppu.clock()
 
+        if (clockCounter % 6 == 0) {
+            apu.clock()
+        }
+        apu.checkAndSendSample()
+
         // CPU is 3 times slower than PPU
         if (clockCounter % 3 == 0) {
             if (dmaTransfer) {
@@ -84,6 +94,7 @@ class Bus(val cpu: OLC6502, val ppu: OLC2C02) {
         }
 
         if (ppu.nmiRequest) {
+            apu.onFrame()
             ppu.nmiRequest = false
             cpu.nonMaskableInterrupt()
         }
