@@ -171,16 +171,11 @@ class OLC2A03(val beeper: Beeper) {
         audioTime += TIME_PER_NES_CLOCK
         while (audioTime >= TIME_PER_SAMPLE) {
             audioTime -= TIME_PER_SAMPLE
-            beeper.sendSample(getOutputSample())
+            beeper.sendSample(SquareChannel.getSquareSample(channel1, channel2))
         }
     }
 
     fun reset() {
 
-    }
-
-    fun getOutputSample(): Double {
-        return ((1.0 * channel1.output) - 0.8) * 0.1 +
-                ((1.0 * channel2.output) - 0.8) * 0.1
     }
 }
