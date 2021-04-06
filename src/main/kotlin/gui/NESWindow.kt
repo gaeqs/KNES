@@ -32,12 +32,12 @@ class NESWindow(width: Int, height: Int, val nes: Bus) : JPanel(true) {
         addKeyListener(keyListener)
         isFocusable = true
 
-        nes.apu.beeper.onSample = {
-            synchronized(audioArray) {
-                audioArray += it
-                if (audioArray.size > 1000) audioArray.removeFirst()
-            }
-        }
+        //nes.apu.beeper.onSample = {
+        //    synchronized(audioArray) {
+        //        audioArray += it
+        //        if (audioArray.size > 1000) audioArray.removeFirst()
+        //    }
+        //}
     }
 
     override fun paint(g: Graphics?) {
@@ -237,9 +237,6 @@ class NESWindow(width: Int, height: Int, val nes: Bus) : JPanel(true) {
                                 thread?.interrupt()
                                 thread = null
                             }
-                        }
-                        'p' -> {
-                            nes.apu.beeper.line.start()
                         }
                         // PALETTES
                         'u' -> {

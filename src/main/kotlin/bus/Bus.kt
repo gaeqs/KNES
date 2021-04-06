@@ -1,6 +1,6 @@
 package bus
 
-import audio.OLC2A03
+import audio.OLC2A03old
 import cpu.OLC6502
 import ppu.OLC2C02
 import util.concatenate
@@ -8,9 +8,9 @@ import util.isZero
 import util.shl
 
 @ExperimentalUnsignedTypes
-class Bus(val cpu: OLC6502, val ppu: OLC2C02, val apu: OLC2A03) {
+class Bus(val cpu: OLC6502, val ppu: OLC2C02, val apu: OLC2A03old) {
 
-    var clockCounter: Int = 0
+    var clockCounter: Long = 0
         private set
 
     var cartridge: Cartridge? = null
@@ -30,6 +30,7 @@ class Bus(val cpu: OLC6502, val ppu: OLC2C02, val apu: OLC2A03) {
 
     init {
         cpu.bus = this
+        apu.setBus(this)
     }
 
     private val cpuRAM = UByteArray(2048)
@@ -44,12 +45,16 @@ class Bus(val cpu: OLC6502, val ppu: OLC2C02, val apu: OLC2A03) {
                 dmaAddress = 0u
                 dmaTransfer = true
             }
+            (0x4016u).toUShort() -> {
+                repeat(controllers.size) { controllersSnapshot[it] = controllers[it] }
+            }
             in 0x4000u..0x4013u, (0x4015u).toUShort(), (0x4017u).toUShort() ->
-                apu.cpuWrite(address, data)
+                apu.cpuWrite(address.toInt(), data.toInt())
         }
-        if (address in 0x4016u..0x4017u) {
-            controllersSnapshot[(address and 0x1u).toInt()] = controllers[(address and 0x1u).toInt()]
-        }
+    }
+
+    fun cpuReadJava (address: Short, readOnly: Boolean) : Byte {
+        return cpuRead(address.toUShort(), readOnly).toByte()
     }
 
     fun cpuRead(address: UShort, readOnly: Boolean = false): UByte {
@@ -60,7 +65,7 @@ class Bus(val cpu: OLC6502, val ppu: OLC2C02, val apu: OLC2A03) {
         return when (address) {
             in 0x0000u..0x1FFFu -> cpuRAM[address.toInt() and 0x07FF]
             in 0x2000u..0x3FFFu -> ppu.cpuRead(address and 0x0007u, readOnly)
-            (0x4015u).toUShort() -> apu.cpuRead(address, readOnly)
+            (0x4015u).toUShort() -> apu.cpuRead(address.toInt()).toUByte()
             in 0x4016u..0x4017u -> {
                 val value = controllersSnapshot[(address and 0x1u).toInt()]
                 val data: UByte = if (value and 0x80u > 0u) 1u else 0u
@@ -76,16 +81,15 @@ class Bus(val cpu: OLC6502, val ppu: OLC2C02, val apu: OLC2A03) {
         clockCounter = 0
     }
 
+    fun stealCycles(cycles: Int) {
+        clockCounter += cycles
+    }
+
     fun clock() {
         ppu.clock()
 
-        if (clockCounter % 6 == 0) {
-            apu.clock()
-        }
-        apu.checkAndSendSample()
-
         // CPU is 3 times slower than PPU
-        if (clockCounter % 3 == 0) {
+        if (clockCounter % 3 == 0L) {
             if (dmaTransfer) {
                 manageDMA()
             } else {
@@ -94,7 +98,7 @@ class Bus(val cpu: OLC6502, val ppu: OLC2C02, val apu: OLC2A03) {
         }
 
         if (ppu.nmiRequest) {
-            apu.onFrame()
+            apu.onFrameFinish()
             ppu.nmiRequest = false
             cpu.nonMaskableInterrupt()
         }
@@ -104,11 +108,11 @@ class Bus(val cpu: OLC6502, val ppu: OLC2C02, val apu: OLC2A03) {
 
     private fun manageDMA() {
         if (dmaWaitForSync) {
-            if (clockCounter and 0x1 == 1) {
+            if (clockCounter and 0x1 == 1L) {
                 dmaWaitForSync = false
             }
         } else {
-            if (clockCounter and 0x1 == 0) {
+            if (clockCounter and 0x1 == 0L) {
                 dmaData = cpuRead(dmaPage concatenate dmaAddress)
             } else {
                 ppu.oam[dmaAddress.toInt() shr 2][dmaAddress.toInt() and 0x3] = dmaData
