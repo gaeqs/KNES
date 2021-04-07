@@ -1,9 +1,10 @@
-import audio.OLC2A03old
+import audio.OLC2A03
 import bus.Bus
 import bus.Cartridge
 import cpu.OLC6502
 import gui.NESWindow
 import ppu.OLC2C02
+import util.TVType
 import java.io.File
 import javax.swing.JFrame
 import javax.swing.WindowConstants
@@ -16,7 +17,7 @@ fun main(args: Array<String>) {
     println("Hello World!")
     val cpu = OLC6502()
     val ppu = OLC2C02()
-    val apu = OLC2A03old()
+    val apu = OLC2A03(TVType.NTSC, 44100, true)
     val bus = Bus(cpu, ppu, apu)
 
     bus.cartridge = Cartridge(File("roms/smb.nes"))

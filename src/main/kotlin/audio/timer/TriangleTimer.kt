@@ -2,13 +2,15 @@ package audio.timer
 
 import kotlin.math.max
 
-class TriangleTimer : Timer {
+class TriangleTimer : Timer() {
 
     companion object {
         private val VALUES = IntArray(32) { if (it > 15) 32 - it else it }
     }
 
     override var period: Int = 0
+    override val value: Int
+        get() = if (period == 0) 7 else VALUES[position]
 
     private var position = 0
     private var divider = 0
@@ -22,10 +24,6 @@ class TriangleTimer : Timer {
     }
 
     override fun reset() {
-    }
-
-    override fun getValue(): Int {
-        return if (period == 0) 7 else VALUES[position]
     }
 
     override fun clock() {

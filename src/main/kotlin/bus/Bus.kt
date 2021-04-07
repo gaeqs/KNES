@@ -1,6 +1,6 @@
 package bus
 
-import audio.OLC2A03old
+import audio.OLC2A03
 import cpu.OLC6502
 import ppu.OLC2C02
 import util.concatenate
@@ -8,7 +8,7 @@ import util.isZero
 import util.shl
 
 @ExperimentalUnsignedTypes
-class Bus(val cpu: OLC6502, val ppu: OLC2C02, val apu: OLC2A03old) {
+class Bus(val cpu: OLC6502, val ppu: OLC2C02, val apu: OLC2A03) {
 
     var clockCounter: Long = 0
         private set
@@ -30,7 +30,7 @@ class Bus(val cpu: OLC6502, val ppu: OLC2C02, val apu: OLC2A03old) {
 
     init {
         cpu.bus = this
-        apu.setBus(this)
+        apu.bus = this
     }
 
     private val cpuRAM = UByteArray(2048)
@@ -49,11 +49,11 @@ class Bus(val cpu: OLC6502, val ppu: OLC2C02, val apu: OLC2A03old) {
                 repeat(controllers.size) { controllersSnapshot[it] = controllers[it] }
             }
             in 0x4000u..0x4013u, (0x4015u).toUShort(), (0x4017u).toUShort() ->
-                apu.cpuWrite(address.toInt(), data.toInt())
+                apu.cpuWrite(address, data)
         }
     }
 
-    fun cpuReadJava (address: Short, readOnly: Boolean) : Byte {
+    fun cpuReadJava(address: Short, readOnly: Boolean): Byte {
         return cpuRead(address.toUShort(), readOnly).toByte()
     }
 
@@ -65,7 +65,7 @@ class Bus(val cpu: OLC6502, val ppu: OLC2C02, val apu: OLC2A03old) {
         return when (address) {
             in 0x0000u..0x1FFFu -> cpuRAM[address.toInt() and 0x07FF]
             in 0x2000u..0x3FFFu -> ppu.cpuRead(address and 0x0007u, readOnly)
-            (0x4015u).toUShort() -> apu.cpuRead(address.toInt()).toUByte()
+            (0x4015u).toUShort() -> apu.cpuRead(address)
             in 0x4016u..0x4017u -> {
                 val value = controllersSnapshot[(address and 0x1u).toInt()]
                 val data: UByte = if (value and 0x80u > 0u) 1u else 0u

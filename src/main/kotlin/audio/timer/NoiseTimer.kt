@@ -3,9 +3,14 @@ package audio.timer
 import util.BIT0
 import kotlin.math.max
 
-class NoiseTimer : Timer {
+class NoiseTimer : Timer(), VolumedTimer {
 
     override var period: Int = 1
+    override val value: Int
+        get() = values[position] and 1
+
+    override var volume = 0
+    override var envelopeConstantVolume = false
 
     private var position = 0
     private var values = generateValues(1, 1)
@@ -28,10 +33,6 @@ class NoiseTimer : Timer {
         position = 0
     }
 
-    override fun getValue(): Int {
-        return values[position] and 1
-    }
-
     override fun clock() {
         divider++
         refreshPosition()
@@ -40,6 +41,10 @@ class NoiseTimer : Timer {
     override fun clock(cycles: Int) {
         divider += cycles
         refreshPosition()
+    }
+
+    override fun refreshVolume() {
+        volume = if (counterLength <= 0) 0 else if (envelopeConstantVolume) envelopeValue else envelopeCounter
     }
 
     private fun refreshPosition() {

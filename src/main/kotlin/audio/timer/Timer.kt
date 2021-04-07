@@ -1,19 +1,33 @@
 package audio.timer
 
-interface Timer {
+abstract class Timer {
 
-    var period: Int
+    companion object {
+        val COUNTER_LENGTH_LOAD = listOf(10, 254, 20, 2, 40, 4, 80, 6,
+            160, 8, 60, 10, 14, 12, 26, 14, 12, 16, 24, 18, 48, 20, 96, 22,
+            192, 24, 72, 26, 16, 28, 32, 30)
+    }
 
-    fun setDuty(duty: Int)
+    var counterLengthEnabled = true
+    var counterLengthHalt = true
+    var counterLength = 0
 
-    fun setDuty(duty: IntArray)
+    var envelopeStartFlag = false
+    var envelopePosition = 0
+    var envelopeValue = 15
+    var envelopeCounter = 0
 
-    fun reset()
+    abstract var period: Int
+    abstract val value: Int
 
-    fun clock()
+    abstract fun setDuty(duty: Int)
 
-    fun clock(cycles: Int)
+    abstract fun setDuty(duty: IntArray)
 
-    fun getValue(): Int
+    abstract fun reset()
+
+    abstract fun clock()
+
+    abstract fun clock(cycles: Int)
 
 }

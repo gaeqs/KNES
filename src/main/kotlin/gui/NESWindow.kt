@@ -145,23 +145,22 @@ class NESWindow(width: Int, height: Int, val nes: Bus) : JPanel(true) {
         g.color = Color.WHITE
     }
 
-    private fun drawAudio (g : Graphics2D) {
+    private fun drawAudio(g: Graphics2D) {
         var x = 300
         synchronized(audioArray) {
             for (d in audioArray) {
                 g.drawRect(x, height / 2 + (d * 100).toInt(), 1, 1)
-            x++
+                x++
             }
         }
     }
 
     private fun manageThread() {
-        val maxDelay = 1000.0 / 60.0
+        val maxDelay = 1000000000L / 61L
         lastTick = System.nanoTime()
         while (!Thread.currentThread().isInterrupted) {
 
             updateController()
-
             do {
                 nes.clock()
                 if (Thread.currentThread().isInterrupted) return
@@ -169,17 +168,8 @@ class NESWindow(width: Int, height: Int, val nes: Bus) : JPanel(true) {
             nes.ppu.frameCompleted = false
             repaint()
 
-            val delay = (System.nanoTime() - lastTick) / 1000000.0
-
-
-
-            if (delay < maxDelay) {
-                try {
-                    Thread.sleep((maxDelay - delay).toLong())
-                } catch (ex: InterruptedException) {
-                    break
-                }
-            }
+            val nextTick = lastTick + maxDelay
+            while (System.nanoTime() < nextTick);
 
             fps = 1000.0 / ((System.nanoTime() - lastTick) / 1000000.0)
             lastTick = System.nanoTime()

@@ -2,9 +2,22 @@ package audio.timer
 
 import kotlin.math.max
 
-class SquareTimer(cycleLength: Int, private val periodAdd: Int = 0) : Timer {
+class SquareTimer(cycleLength: Int, private val periodAdd: Int = 0) : Timer(), VolumedTimer {
 
     override var period: Int = 0
+    override val value: Int
+        get() = values[position]
+
+    override var volume = 0
+    override var envelopeConstantVolume = false
+
+    var sweepEnabled = false
+    var sweepSilence = false
+    var sweepReload = false
+    var sweepPosition = 0
+    var sweepPeriod = 15
+    var sweepShift = 0
+    var sweepNegate = false
 
     private var position = 0
     private var values = IntArray(cycleLength)
@@ -26,10 +39,6 @@ class SquareTimer(cycleLength: Int, private val periodAdd: Int = 0) : Timer {
         position = 0
     }
 
-    override fun getValue(): Int {
-        return values[position]
-    }
-
     override fun clock() {
         if (period + periodAdd <= 0) return
         divider++
@@ -40,6 +49,11 @@ class SquareTimer(cycleLength: Int, private val periodAdd: Int = 0) : Timer {
         if (period < 8) return
         divider += cycles
         refreshPosition()
+    }
+
+    override fun refreshVolume() {
+        volume = if (counterLength <= 0 || sweepSilence) 0
+        else if (envelopeConstantVolume) envelopeValue else envelopeCounter
     }
 
     private fun refreshPosition() {
