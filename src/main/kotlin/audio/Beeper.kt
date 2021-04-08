@@ -18,7 +18,7 @@ class Beeper(sampleRate: Int, tvType: TVType) {
     init {
         val fps = if (tvType == TVType.NTSC) 60.0 else 50.0
         val samplesPerFrame = ceil(sampleRate * 2 / fps).toInt()
-        buffer = ByteArray(samplesPerFrame * 16)
+        buffer = ByteArray(samplesPerFrame * 16 * 20)
 
         val audioFormat = AudioFormat(sampleRate.toFloat(), 16, 2, true, false)
         line = AudioSystem.getSourceDataLine(audioFormat)

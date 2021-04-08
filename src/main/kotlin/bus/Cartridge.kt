@@ -1,7 +1,8 @@
 package bus
 
-import mapper.Mapper
-import mapper.Mapper000
+import mapper.*
+import util.Mirror
+import util.isZero
 import util.shl
 import util.shr
 import java.io.File
@@ -19,6 +20,10 @@ class Cartridge(val file: File) {
     private val mapper: Mapper
 
     val mirror: Mirror
+        get() {
+            val mirror = mapper.mirror
+            return if (mirror == Mirror.HARDWARE) field else mirror
+        }
 
     init {
         val inStream = file.inputStream();
@@ -49,7 +54,10 @@ class Cartridge(val file: File) {
                 prgMemory = UByteArray(prgBanks.toInt() * 0x4000) { inStream.read().toUByte() }
 
                 chrBanks = header.chrRomChunks
-                chrMemory = UByteArray(prgBanks.toInt() * 0x2000) { inStream.read().toUByte() }
+
+
+                chrMemory =
+                    UByteArray((if (chrBanks.isZero()) 1 else chrBanks.toInt()) * 0x2000) { inStream.read().toUByte() }
             }
             else -> {
                 prgBanks = 0u
@@ -59,10 +67,18 @@ class Cartridge(val file: File) {
             }
         }
 
-        println("MAPPER $mapperId")
-        mapper = Mapper000(prgBanks, chrBanks)
-        mirror = if (header.mapper1 and 0x01u > 0u) Mirror.VERTICAL else Mirror.HORIZONTAL
+        println("Mapper ID: $mapperId")
+        println("File type: $fileType")
+        mapper = when (mapperId.toInt()) {
+            1 -> Mapper001(prgBanks, chrBanks)
+            2 -> Mapper002(prgBanks, chrBanks)
+            3 -> Mapper003(prgBanks, chrBanks)
+            66 -> Mapper066(prgBanks, chrBanks)
+            else -> Mapper000(prgBanks, chrBanks)
+        }
 
+
+        mirror = if (header.mapper1 and 0x01u > 0u) Mirror.VERTICAL else Mirror.HORIZONTAL
         inStream.close()
     }
 
@@ -70,9 +86,11 @@ class Cartridge(val file: File) {
      * CPU bus communication
      */
     fun cpuWrite(address: UShort, data: UByte): Boolean {
-        val (success, mapped) = mapper.ppuMapWrite(address)
+        val (success, mapped) = mapper.cpuMapWrite(address, data)
         if (success) {
-            prgMemory[mapped.toInt()] = data
+            if (mapped != 0xFFFFFFFFu) {
+                prgMemory[mapped.toInt()] = data
+            }
             return true
         }
         return false
@@ -82,9 +100,9 @@ class Cartridge(val file: File) {
      * CPU bus communication
      */
     fun cpuRead(address: UShort, readOnly: Boolean = false): Pair<Boolean, UByte> {
-        val (success, mapped) = mapper.cpuMapRead(address)
+        val (success, mapped, value) = mapper.cpuMapRead(address)
         if (success) {
-            return Pair(true, prgMemory[mapped.toInt()])
+            return Pair(true, if (mapped == 0xFFFFFFFFu) value else prgMemory[mapped.toInt()])
         }
         return Pair(false, 0u)
     }
@@ -93,7 +111,7 @@ class Cartridge(val file: File) {
      * PPU bus communication
      */
     fun ppuWrite(address: UShort, data: UByte): Boolean {
-        val (success, mapped) = mapper.ppuMapWrite(address)
+        val (success, mapped) = mapper.ppuMapWrite(address, data)
         if (success) {
             chrMemory[mapped.toInt()] = data
             return true
@@ -112,6 +130,10 @@ class Cartridge(val file: File) {
         return Pair(false, 0u)
     }
 
+    fun reset() {
+        mapper.reset()
+    }
+
 }
 
 @ExperimentalUnsignedTypes
@@ -126,7 +148,3 @@ data class CartridgeHeader(
     val tvSystem2: UByte,
     val unused: UByteArray
 )
-
-enum class Mirror {
-    VERTICAL, HORIZONTAL, ONESCREEN_LO, ONESCREEN_HI
-}

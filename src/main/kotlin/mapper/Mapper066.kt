@@ -2,15 +2,20 @@ package mapper
 
 import util.Mirror
 import util.isZero
+import util.shr
 
 @ExperimentalUnsignedTypes
-class Mapper000(prgBanks: UByte, chrBanks: UByte) : Mapper(prgBanks, chrBanks) {
+class Mapper066(prgBanks: UByte, chrBanks: UByte) : Mapper(prgBanks, chrBanks) {
+
     override var mirror = Mirror.HARDWARE
     override val irqState = false
 
-    override fun cpuMapRead(address: UShort):Triple<Boolean, UInt, UByte> {
+    private var selectedPRGBank: UByte = 0u
+    private var selectedCHRBank: UByte = 0u
+
+    override fun cpuMapRead(address: UShort): Triple<Boolean, UInt, UByte> {
         if (address in 0x8000u..0xFFFFu) {
-            return Triple(true, (address and (if (prgBanks > 1u) 0x7FFFu else 0x3FFFu).toUShort()).toUInt(), 0u)
+            return Triple(true, selectedPRGBank * 0x8000u + (address and 0x7FFFu), 0u)
         }
 
         return Triple(false, 0u, 0u)
@@ -18,7 +23,8 @@ class Mapper000(prgBanks: UByte, chrBanks: UByte) : Mapper(prgBanks, chrBanks) {
 
     override fun cpuMapWrite(address: UShort, data: UByte): Pair<Boolean, UInt> {
         if (address in 0x8000u..0xFFFFu) {
-            return Pair(true, (address and (if (prgBanks > 1u) 0x7FFFu else 0x3FFFu).toUShort()).toUInt())
+            selectedCHRBank = data and 0x03u
+            selectedPRGBank = data and 0x30u shr 4
         }
 
         return Pair(false, 0u)
@@ -26,24 +32,19 @@ class Mapper000(prgBanks: UByte, chrBanks: UByte) : Mapper(prgBanks, chrBanks) {
 
     override fun ppuMapRead(address: UShort): Pair<Boolean, UInt> {
         if (address in 0x0000u..0x1FFFu) {
-            return Pair(true, address.toUInt())
+            return Pair(true, selectedCHRBank * 0x2000u + address.toUInt())
         }
 
         return Pair(false, 0u)
     }
 
     override fun ppuMapWrite(address: UShort, data: UByte): Pair<Boolean, UInt> {
-        if(address in 0x0000u..0x1FFFu) {
-            if(chrBanks.isZero()) {
-                // RAM MODE
-                return Pair(true, address.toUInt())
-            }
-        }
-
         return Pair(false, 0u)
     }
 
     override fun reset() {
+        selectedCHRBank = 0u
+        selectedPRGBank = 0u
     }
 
     override fun clearIrq() {

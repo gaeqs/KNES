@@ -2,12 +2,12 @@ package util
 
 @ExperimentalUnsignedTypes
 fun UByte.isZero(): Boolean {
-    return this.toUInt() == 0u;
+    return this <= 0u;
 }
 
 @ExperimentalUnsignedTypes
 fun UShort.isZero(): Boolean {
-    return this.toUInt() == 0u;
+    return this <= 0u;
 }
 
 @ExperimentalUnsignedTypes

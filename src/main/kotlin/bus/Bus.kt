@@ -78,6 +78,7 @@ class Bus(val cpu: OLC6502, val ppu: OLC2C02, val apu: OLC2A03) {
 
     fun reset() {
         cpu.reset()
+        cartridge?.reset()
         clockCounter = 0
     }
 

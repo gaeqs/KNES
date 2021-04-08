@@ -56,39 +56,39 @@ class NESWindow(width: Int, height: Int, val nes: Bus) : JPanel(true) {
             0, 0
         )
 
-        g.drawString("FPS: $fps", 550, 15)
+        g.drawString("FPS: $fps", 900, 15)
         drawAudio(g)
-        //drawStatus(g)
-        //drawRegisters(g)
-        //drawDisassembledCode(g)
-        //drawOEM(g)
-        //drawTables(g)
+        drawStatus(g)
+        drawRegisters(g)
+        drawDisassembledCode(g)
+        drawOEM(g)
+        drawTables(g)
     }
 
     private fun drawStatus(g: Graphics2D) {
-        g.drawString("STATUS:", 550, 30)
+        g.drawString("STATUS:", 900, 30)
         g.color = if (nes.cpu.getFlag(StatusFlag.NEGATIVE)) Color.RED else Color.WHITE
-        g.drawString("N", 620, 30)
+        g.drawString("N", 970, 30)
         g.color = if (nes.cpu.getFlag(StatusFlag.OVERFLOW)) Color.RED else Color.WHITE
-        g.drawString("V", 640, 30)
+        g.drawString("V", 990, 30)
         g.color = if (nes.cpu.getFlag(StatusFlag.DECIMAL_MODE)) Color.RED else Color.WHITE
-        g.drawString("D", 660, 30)
+        g.drawString("D", 1010, 30)
         g.color = if (nes.cpu.getFlag(StatusFlag.DISABLE_INTERRUPTS)) Color.RED else Color.WHITE
-        g.drawString("I", 680, 30)
+        g.drawString("I", 1030, 30)
         g.color = if (nes.cpu.getFlag(StatusFlag.ZERO)) Color.RED else Color.WHITE
-        g.drawString("Z", 700, 30)
+        g.drawString("Z", 1050, 30)
         g.color = if (nes.cpu.getFlag(StatusFlag.CARRY_BIT)) Color.RED else Color.WHITE
-        g.drawString("C", 720, 30)
+        g.drawString("C", 1070, 30)
         g.color = Color.WHITE
     }
 
     private fun drawRegisters(g: Graphics2D) {
-        g.drawString("PC:     $${nes.cpu.pc.toHex(4)}", 550, 45)
-        g.drawString("A:      $${nes.cpu.accumulator.toHex(2)} [${nes.cpu.accumulator}]", 550, 60)
-        g.drawString("X:      $${nes.cpu.xRegister.toHex(2)} [${nes.cpu.xRegister}]", 550, 75)
-        g.drawString("Y:      $${nes.cpu.yRegister.toHex(2)} [${nes.cpu.yRegister}]", 550, 90)
-        g.drawString("STACK:  $${nes.cpu.stackPointer.toHex(4)}", 550, 105)
-        g.drawString("Pal:    $selectedPalette", 550, 120)
+        g.drawString("PC:     $${nes.cpu.pc.toHex(4)}", 900, 45)
+        g.drawString("A:      $${nes.cpu.accumulator.toHex(2)} [${nes.cpu.accumulator}]", 900, 60)
+        g.drawString("X:      $${nes.cpu.xRegister.toHex(2)} [${nes.cpu.xRegister}]", 900, 75)
+        g.drawString("Y:      $${nes.cpu.yRegister.toHex(2)} [${nes.cpu.yRegister}]", 900, 90)
+        g.drawString("STACK:  $${nes.cpu.stackPointer.toHex(4)}", 900, 105)
+        g.drawString("Pal:    $selectedPalette", 900, 120)
     }
 
     private fun drawDisassembledCode(g: Graphics2D) {
@@ -102,7 +102,7 @@ class NESWindow(width: Int, height: Int, val nes: Bus) : JPanel(true) {
             val string = disassembled[i]
             if (string != null) {
                 g.color = if (i == pc.toInt()) Color.RED else Color.WHITE
-                g.drawString(string, 550, y)
+                g.drawString(string, 900, y)
                 y += 15
             }
         }

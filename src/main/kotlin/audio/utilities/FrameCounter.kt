@@ -8,6 +8,8 @@ class FrameCounter(private val tvType: TVType, private val run: () -> Unit) {
     var mode = 4
     var frame = 0
 
+    var interrupt = false
+
     fun clock() {
         value--
         if (value <= 0) {

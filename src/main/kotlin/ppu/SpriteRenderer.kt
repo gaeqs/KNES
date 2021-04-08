@@ -32,7 +32,7 @@ class SpriteRenderer(private val ppu: OLC2C02) {
                 257 -> if (scanline >= 0) populateSpriteArray(scanline)
                 340 -> repeat(spriteCount) { generateSpriteShifters(scanline, it) }
             }
-            if (cycle in 2 until 258) updateShifters()
+            if (cycle in 3 until 258) updateShifters()
         }
 
         spriteZeroBeingRendered = false
@@ -87,10 +87,10 @@ class SpriteRenderer(private val ppu: OLC2C02) {
         val spritePatternAddressLow: UShort = if (ppu.control.spriteSize > 0u) {
             // 8x16 MODE
             val flip = scanlineSprites[i].attribute and 0x80u > 0u
-            val bottom = if (scanline - scanlineSprites[i].y.toInt() < 8) 0u else 1u
+            val bottom = if ((scanline - scanlineSprites[i].y.toInt() < 8) xor flip) 0u else 1u
             val temp = (ppu.control.patternSprite.toUShort() and 0x01u shl 12) or
                     (((scanlineSprites[i].id.toUShort() and 0xFEu) + bottom).toUShort() shl 4)
-            val offset = if (flip) scanline.toUShort() - scanlineSprites[i].y
+            val offset = if (!flip) scanline.toUShort() - scanlineSprites[i].y
             else 7u - scanline.toUShort() + scanlineSprites[i].y
 
             temp or (offset.toUShort() and 0x07u)

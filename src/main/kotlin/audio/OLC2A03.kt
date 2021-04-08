@@ -41,7 +41,6 @@ class OLC2A03(val tvType: TVType, val sampleRate: Int, val soundFiltering: Boole
     )
 
     private var interruptFlag = true
-    private var frameInterruptStatus = false
 
     private var linearCounterFlag = false
     private var linearCounter = 0
@@ -187,8 +186,8 @@ class OLC2A03(val tvType: TVType, val sampleRate: Int, val soundFiltering: Boole
                 interruptFlag = data and 0b01000000u > 0u
                 frameCounter.frame = 0
                 frameCounter.value = tvType.audioFrameCounterReload
-                if (interruptFlag && frameInterruptStatus) {
-                    frameInterruptStatus = false
+                if (interruptFlag && frameCounter.interrupt) {
+                    frameCounter.interrupt = false
                 }
                 if (frameCounter.mode == 5) {
                     updateEnvelope()
@@ -211,9 +210,9 @@ class OLC2A03(val tvType: TVType, val sampleRate: Int, val soundFiltering: Boole
                 value = value or if (timer.counterLength > 0) (1u shl i).toUByte() else 0u
             }
             value = value or if (dmc.samplesLeft > 0) 16u else 0u
-            value = value or if (frameInterruptStatus) 64u else 0u
+            value = value or if (frameCounter.interrupt) 64u else 0u
             value = value or if (dmc.interrupt) 128u else 0u
-            if (!readOnly) frameInterruptStatus = false
+            if (!readOnly) frameCounter.interrupt = false
             return value
         }
         return 0x40u
@@ -278,9 +277,9 @@ class OLC2A03(val tvType: TVType, val sampleRate: Int, val soundFiltering: Boole
             updateSweep()
         }
 
-        if (!interruptFlag && frameCounter.frame == 3 && frameCounter.mode == 4 && !frameInterruptStatus) {
+        if (!interruptFlag && frameCounter.frame == 3 && frameCounter.mode == 4 && !frameCounter.interrupt) {
             bus?.cpu?.interruptRequest()
-            frameInterruptStatus = false
+            frameCounter.interrupt = true
         }
 
         frameCounter.frame = (frameCounter.frame + 1) % frameCounter.mode

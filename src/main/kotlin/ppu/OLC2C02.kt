@@ -1,7 +1,7 @@
 package ppu
 
 import bus.Cartridge
-import bus.Mirror
+import util.Mirror
 import util.isZero
 import util.shl
 import util.shr
@@ -165,6 +165,7 @@ class OLC2C02 {
                         }
                     }
                     else -> {
+                        println("READ NOT SUPPORTED ${cartridge?.mirror}")
                     }
                 }
             }
@@ -195,25 +196,7 @@ class OLC2C02 {
                 patternTables[(address and 0x1000u shr 12).toInt()][(address and 0x0FFFu).toInt()]
             }
             in 0x2000u..0x3EFFu -> {
-                when (cartridge?.mirror ?: Mirror.VERTICAL) {
-                    Mirror.VERTICAL -> {
-                        when (address and 0x0FFFu) {
-                            in 0x0000u..0x03FFu,
-                            in 0x0800u..0x0BFFu -> nameTables[0][(address and 0x03FFu).toInt()]
-                            else -> nameTables[1][(address and 0x03FFu).toInt()]
-                        }
-                    }
-                    Mirror.HORIZONTAL -> {
-                        when (address and 0x0FFFu) {
-                            in 0x0000u..0x07FFu -> nameTables[0][(address and 0x03FFu).toInt()]
-                            else -> nameTables[1][(address and 0x03FFu).toInt()]
-                        }
-                    }
-                    else -> {
-                        println("NOT SUPPORTED")
-                        0u
-                    }
-                }
+                cartridge?.mirror?.map(nameTables, address) ?: 0u
             }
             in 0x3F00u..0x3FFFu -> {
                 val masked = when ((address and 0x001Fu).toUInt()) {
