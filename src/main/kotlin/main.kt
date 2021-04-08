@@ -20,7 +20,7 @@ fun main(args: Array<String>) {
     val apu = OLC2A03(TVType.NTSC, 44100, true)
     val bus = Bus(cpu, ppu, apu)
 
-    bus.cartridge = Cartridge(File("roms/ss.nes"))
+    bus.cartridge = Cartridge(File("roms/smb.nes"))
     bus.reset()
 
     WINDOW = NESWindow(800, 600, bus)

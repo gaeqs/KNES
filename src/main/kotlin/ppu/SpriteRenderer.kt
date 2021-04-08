@@ -68,8 +68,10 @@ class SpriteRenderer(private val ppu: OLC2C02) {
         spriteZeroHitPossible = false
         scanlineSprites.forEach { it.fill(0xFFu) }
         spriteCount = 0
+        ppu.status.spriteOverflow = 0u
         var entry = 0
-        while (entry < 64 && ppu.status.spriteOverflow.isZero()) {
+        var overflow = false
+        while (entry < 64 && !overflow) {
             val diff = (scanline.toShort() - ppu.oam[entry].y.toShort())
             if (diff >= 0 && diff < if (ppu.control.spriteSize > 0u) 16 else 8) {
                 if (spriteCount < 8) {
@@ -77,6 +79,7 @@ class SpriteRenderer(private val ppu: OLC2C02) {
                     scanlineSprites[spriteCount++].moveFrom(ppu.oam[entry])
                 } else {
                     ppu.status.spriteOverflow = 1u
+                    overflow = true
                 }
             }
             entry++
