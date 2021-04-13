@@ -12,8 +12,8 @@ import util.shr
 class OLC2A03(val tvType: TVType, val sampleRate: Int, val soundFiltering: Boolean) {
 
     companion object {
-        private val TND_LOOKUP = IntArray(203) { ((163.67 / (24329.0 / it + 100.0)) * 49151.0).toInt() }
-        private val SQUARE_LOOKUP = IntArray(203) { ((95.52 / (8128.0 / it + 100.0)) * 49151.0).toInt() }
+        private val TND_LOOKUP = IntArray(203 * 2) { ((163.67 / (24329.0 / it + 100.0)) * 49151.0).toInt() }
+        private val SQUARE_LOOKUP = IntArray(203 * 2) { ((95.52 / (8128.0 / it + 100.0)) * 49151.0).toInt() }
         private val DUTY_LOOKUP = arrayOf(
             intArrayOf(0, 1, 0, 0, 0, 0, 0, 0),
             intArrayOf(0, 1, 1, 0, 0, 0, 0, 0),
@@ -259,9 +259,8 @@ class OLC2A03(val tvType: TVType, val sampleRate: Int, val soundFiltering: Boole
         val t2 = timers[2] as TriangleTimer
         val t3 = timers[3] as NoiseTimer
 
-        return SQUARE_LOOKUP[t0.volume * t0.value
-                + t1.volume * t1.value] + TND_LOOKUP[3 * t2.value
-                + 2 * t3.volume * t3.value + dmc.value]
+        return SQUARE_LOOKUP[t0.volume * t0.value + t1.volume * t1.value] +
+                    TND_LOOKUP[3 * t2.value + 2 * t3.volume * t3.value + dmc.value]
     }
 
     private fun clockFrameCounter() {

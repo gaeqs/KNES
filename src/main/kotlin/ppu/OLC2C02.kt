@@ -249,6 +249,11 @@ class OLC2C02 {
         }
 
         cycle++
+
+        if (cycle == 260 && scanline < 240 && (mask.showBackground > 0u || mask.showSprites > 0u)) {
+            cartridge?.mapper?.scanline()
+        }
+
         if (cycle > 340) {
             cycle = 0
             scanline++

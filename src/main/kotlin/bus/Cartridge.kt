@@ -17,8 +17,8 @@ class Cartridge(val file: File) {
 
     private val prgMemory: UByteArray
     private val chrMemory: UByteArray
-    private val mapper: Mapper
 
+    val mapper: Mapper
     val mirror: Mirror
         get() {
             val mirror = mapper.mirror
@@ -69,10 +69,13 @@ class Cartridge(val file: File) {
 
         println("Mapper ID: $mapperId")
         println("File type: $fileType")
+        println("PRG Banks: $prgBanks")
+        println("CHR Banks: $chrBanks")
         mapper = when (mapperId.toInt()) {
             1 -> Mapper001(prgBanks, chrBanks)
             2 -> Mapper002(prgBanks, chrBanks)
             3 -> Mapper003(prgBanks, chrBanks)
+            4 -> Mapper004(prgBanks, chrBanks)
             66 -> Mapper066(prgBanks, chrBanks)
             else -> Mapper000(prgBanks, chrBanks)
         }

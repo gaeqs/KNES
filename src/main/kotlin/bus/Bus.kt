@@ -104,6 +104,12 @@ class Bus(val cpu: OLC6502, val ppu: OLC2C02, val apu: OLC2A03) {
             cpu.nonMaskableInterrupt()
         }
 
+        val mapper = cartridge?.mapper
+        if (mapper?.irqState == true) {
+            mapper.clearIrq()
+            cpu.interruptRequest()
+        }
+
         clockCounter++
     }
 
